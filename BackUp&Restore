@@ -1,0 +1,43 @@
+###TERMINAL###
+sudo -i 
+cd /
+tar cpzvf /run/media/klubes/3A41-9826/backup/backup.tgz --exclude /proc --exclude /sys --exclude /run/media/klubes/3A41-9826/ --exclude /lost+found /
+
+@@@RESTORE@@@
+mkdir /mnt/{backup,root}
+mount /dev/sdX(where backup is) /mnt/backup
+mount /dev/sda2 /mnt/root
+
+tar xvpfz backup/backup.tgz -C /mnt/root  
+
+In / mkdir excluded files proc and sys 
+mount --bind /dev /mnt/root/dev
+mount --bind /proc /mnt/root/proc
+mount --bind /sys /mnt/root/sys
+
+@@@Enter to restored system@@@
+chroot /mnt/root
+
+@@@GRUB@@@
+grub-install /dev/sda
+grub-mkconfig -o /boot/grub/grub.cfg
+
+@@@fstab@@@
+nano /etc/fstab
+need to change root's UUID on current or change instead on /dev/sda2 
+to found new UUID need utilit "blkid"
+
+exit
+umount /mnt/root/proc
+umount /mnt/root/sys
+umount /mnt/root/dev
+umount /mnt/root
+umount /mnt/backup
+
+reboot
+
++++++++++++CHECK FILE SYSTEM++++++++++++++
+fsck -y /dev/sda2
+
+
+

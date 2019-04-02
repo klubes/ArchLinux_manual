@@ -1,0 +1,210 @@
+LiveCD Manjaro.
+#TERMINAL#
+sudo su
+
+pacman -Syy
+
+pacman -Ss arch install 
+
+pacman -S extra/arch-install-scripts
+
+______________________________
+*@@@* then need to edit pacman's mirror lists. Type in google
+ - arch mirror lists, find russian mirror then copy and type 
+a link to /etc/pacman.d/mirrorlist
+
+But before it delete the old file: rm /etc/pacman.d/mirror* -rf
+-----now go ahead as usual install------
+
+pacman -Syy 
+
+
+@Disk partition@
+
+fdisk /dev/sda - MBR
+
+cgdisk /dev/sda - GPT
+
+# /boot 100M - выставить флаг boot
+# / 20G
+# swap 1024M
+# /home весь остаток
+
+#(MBR)                          #(GPT) 
+mkfs.ext2  /dev/sda1 -L boot  mkfs.fat -F32 /dev/sda3 (boot)
+mkfs.ext4  /dev/sda2 -L root   mkfs.ext4 /dev/sda1
+mkswap /dev/sda3 -L swap 
+mkfs.ext4  /dev/sda4 -L home mkfs.ext4 /dev/sda2 (home)
+
+@mounting disks@
+
+mount /dev/sda2 /mnt
+mkdir /mnt/{boot,home}
+mount /dev/sda1 /mnt/boot
+swapon /dev/sda3
+mount /dev/sda4 /mnt/home
+
+@Install base system@
+pacstrap -i /mnt base base-devel
+
+@system settings fstab generating@
+
+genfstab -U -p /mnt >> /mnt/etc/fstab
+
+@load to a new system@
+arch-chroot /mnt
+
+@PC name@
+nano /etc/hostname
+
+@Time settings@
+ln -S /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+
+@Add locale@
+nano /etc/locale.gen
+locale-gen
+
+@system language@
+nano /etc/locale.conf
+LANG="en_US.UTF-8"
+
+@console keymap@
+nano /etc/vconsole.conf
+KEYMAP=ru
+FONT=cyr-sun16
+
+@Create RAM disk@
+mkinitcpio -p linux
+
+@set root password@
+passwd
+
+@Boot loader installation@
+#UEFI 
+mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+bootctl install
+blkid -s PARTUUID -o value /dev/sda3(root)
+nano /boot/loader/entries/arch.conf
+#example 
+title Arch Linux
+linux /vmlinuz-linux
+initrd /initramfs-linux.img
+options root=PARTUUID=84c7e76f-43f6-4509-9b02-f3f5c0eac3b2_rw
+
+#Grub
+pacman - S grub
+#if will be two OS in one HDD, so:
+ pacman - S os-prober mtools fuse
+
+@install bootloader to the disk@
+grub-install /dev/sda
+grub-mkconfig -o /boot/grub/grub.cfg
+
+@wifi module@
+pacman - S dialog wpa_supplicant
+
+exit
+
+@unmounting parts@
+umount /mnt/{boot,home}
+reboot
+
+
+@login as root@
+dhcpcd
+
+@new user@
+useradd -m -g users -G wheel -s /bin/bash MYUSERNAME
+passwd MYUSERNAME
+@in the file /etc/sudoers uncomment line # %wheel ALL=(ALL) ALL@
+nano /etc/sudoers
+
+@pacman settings@
+nano /etc/pacman.conf
+[multilib]
+Include = /etc/pacman.d/mirrorlist
+
+[archlinuxfr]
+SigLevel = Never
+Server = http://repo.archlinux.fr/$arch
+pacman -Syy
+pacman -Sy yaourt
+
+@install X@
+pacman -S xorg-server xorg-drivers xorg-xinit xorg-xrandr xorg-xkill
+
+@Set sound@
+pacman -S pulseaudio
+
+@NetworkManager@
+pacman -S networkmanager network-manager-applet ppp
+
+@DM&DE@
+pacman -S xfce4 xfce4-goodies lxdm
+systemctl enable lxdm NetworkManager
+________________________________________
+If dont need DM, so install xorg-xinit and
+ then edit configuration file:
+/etc/X11/xinit/xinitrccp 
+/etc/X11/xinit/xinitrc ~/.xinitrc
+
+# start some nice programs
+if [ -d /etc/X11/xinit/xinitrc.d ] ; then
+ for f in /etc/X11/xinit/xinitrc.d/?*.sh ; do
+  [ -x "$f" ] && . "$f"
+ done
+ unset f
+fi
+
+# Window Manager of your choice
+# exec gnome-session
+exec startkde
+# exec startxfce4
+# exec awesome
+# exec openbox-session
+
+/etc/skel/.bash_profile
+cp /etc/skel/.bash_profile ~/.bash_profile
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+
+[[ -z $DISPLAY && $XDG_VTNR -eq NomerVirtConsole ]] && exec startx
+
+---
+@@NomerVirtConsole - any 1 or 3
+---
+
+systemctl edit getty@ttyNomerVirtConsole  
+ #EXAMPLE systemctl edit getty@tty1
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --autologin MYUSERNAME --noclear %I $TERM
+
+_________________________________________
+
+@Drivers@
+sudo pacman -S xf86-video-intel lib32-intel-dri
+
+
+
+@The base programms@
+sudo pacman -S flashplugin firefox gimp libreoffice audacity screenfetch vlc transmission-qt gparted dosfstools ntfs-3g alsa-lib alsa-utils gnome-calculator file-roller p7zip unrar gvfs aspell-ru pavucontrol cups gtk3-print-backends cups-pdf  veracrypt htop xorg-xkill telegram-desktop
+
+yaourt -S google-chrome megasync lm_sensors  acroread samsung-unified-driver samsung-ml2160 sublime-text vala timeshift apvlv 
+
+==========144*900 RESOLUTION=========
+pacman -S xorg-xrandr
+Display.sh in autorun
+
+#!/bin/sh
+xrandr --newmode "1440x900_60.00" 106.47 1440 1520 1672 1904 900 901 904 932 -HSync +Vsync
+xrandr --addmode DP1 1440x900_60.00
+xrandr --output DP1 --mode 1440x900_60.00
+
+========CUPS printers============
+Login: root
+Password: root passwd
+
+sudo systemctl enable org.cups.cupsd.service
+sudo systemctl start org.cups.cupsd.service
+
+
